@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Student Portal Dashboard</title>
+  <meta name="description" content="Student Portal Dashboard with assignments, calendar, announcements, grades, to-do, and settings. Multi-user with admin mode." />
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- Chart.js for Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <noscript>
+    <div style="padding: 1rem; background: #ffeeee; color: #700;">
+      This app requires JavaScript for full functionality. Enable JavaScript to use the dashboard.
+    </div>
+  </noscript>
+
+  <header class="app-header" role="banner">
+    <button class="sidebar-toggle" aria-label="Toggle navigation" data-action="toggle-sidebar" aria-expanded="true">☰</button>
+    <h1 class="app-title">Student Portal Dashboard</h1>
+    <div class="header-actions">
+      <label class="search" aria-label="Quick search">
+        <input id="globalSearch" type="search" placeholder="Search… (Ctrl+K)" aria-label="Search" />
+      </label>
+      <button id="notificationsBtn" class="icon-btn" aria-label="Notifications" title="Notifications">🔔<span id="notificationBadge" class="badge" hidden>0</span></button>
+      <button id="fabQuickAdd" class="icon-btn fab-trigger" aria-label="Quick Add" title="Quick Add (Ctrl+N)">➕</button>
+      <select id="currentUserSelect" aria-label="Current user"></select>
+      <button class="icon-btn" data-action="copy-student-link" title="Copy link" aria-label="Copy link">🔗</button>
+      <button id="addUserBtn" class="icon-btn admin-only" title="Add user" aria-label="Add user">➕</button>
+      <button id="removeUserBtn" class="icon-btn admin-only" title="Remove user" aria-label="Remove user">➖</button>
+      <button id="adminToggle" class="icon-btn admin-only" aria-pressed="false" aria-label="Admin mode" title="Admin mode">🔒</button>
+      <button id="adminPanelBtn" class="icon-btn admin-only" aria-label="Admin panel" title="Admin panel">🛠️</button>
+      <button id="studyTimerBtn" class="icon-btn" aria-label="Study Timer" title="Study Timer">🍅</button>
+      <button id="logoutBtn" class="icon-btn" aria-label="Log out" title="Log out">🚪</button>
+      <button id="themeToggle" class="icon-btn" aria-pressed="false" aria-label="Toggle theme">🌙</button>
+    </div>
+  </header>
+
+  <!-- Notifications Dropdown -->
+  <div id="notificationsDropdown" class="notifications-dropdown" hidden>
+    <div class="notifications-header">
+      <h3>Notifications</h3>
+      <button class="btn ghost btn-sm" data-action="clear-notifications">Clear all</button>
+    </div>
+    <ul id="notificationsList" class="notifications-list"></ul>
+  </div>
+
+  <!-- Quick Add Menu (FAB) -->
+  <div id="fabMenu" class="fab-menu" hidden>
+    <button class="fab-item" data-action="open-todo-modal">✅ Add To-Do</button>
+    <button class="fab-item" data-action="open-assignment-modal">📝 Add Assignment</button>
+    <button class="fab-item" data-action="open-announcement-modal">📣 Add Announcement</button>
+    <button class="fab-item" data-action="open-grade-modal">🎓 Add Grade</button>
+    <button class="fab-item" data-action="open-attendance-modal">📋 Add Attendance</button>
+    <button class="fab-item" data-action="open-schedule-modal">📅 Add Schedule</button>
+  </div>
+
+  <!-- Study Timer Modal -->
+  <dialog id="modal-study-timer" aria-labelledby="studyTimerTitleLabel">
+    <form method="dialog" id="studyTimerForm">
+      <header class="modal-header">
+        <h3 id="studyTimerTitleLabel">🍅 Study Timer (Pomodoro)</h3>
+      </header>
+      <div class="modal-body study-timer-body">
+        <div class="timer-display">
+          <div id="timerDisplay" class="timer-time">25:00</div>
+          <div id="timerStatus" class="timer-status">Ready to study!</div>
+        </div>
+        <div class="timer-controls">
+          <button type="button" id="timerStartBtn" class="btn primary">▶ Start</button>
+          <button type="button" id="timerPauseBtn" class="btn" hidden>⏸ Pause</button>
+          <button type="button" id="timerResetBtn" class="btn ghost">↺ Reset</button>
+        </div>
+        <div class="timer-presets">
+          <button type="button" class="btn btn-sm" data-time="25">Pomodoro (25m)</button>
+          <button type="button" class="btn btn-sm" data-time="15">Short Break (15m)</button>
+          <button type="button" class="btn btn-sm" data-time="30">Long Break (30m)</button>
+        </div>
+        <div class="timer-sessions">
+          <span>Sessions today: <strong id="timerSessions">0</strong></span>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button value="cancel" class="btn ghost">Close</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Keyboard Shortcuts Help -->
+  <dialog id="modal-shortcuts" aria-labelledby="shortcutsTitleLabel">
+    <form method="dialog" id="shortcutsForm">
+      <header class="modal-header">
+        <h3 id="shortcutsTitleLabel">⌨️ Keyboard Shortcuts</h3>
+      </header>
+      <div class="modal-body">
+        <div class="shortcuts-list">
+          <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>K</kbd> <span>Global search</span></div>
+          <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>N</kbd> <span>Quick add menu</span></div>
+          <div class="shortcut"><kbd>Ctrl</kbd>+<kbd>T</kbd> <span>Open study timer</span></div>
+          <div class="shortcut"><kbd>Esc</kbd> <span>Close modals</span></div>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button value="cancel" class="btn ghost">Close</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Header dropdown menu -->
+  <div id="headerMenu" class="header-menu" hidden>
+    <ul class="menu">
+      <li><button class="menu-item" data-action="go-view" data-target="view-dashboard">🏠 Dashboard</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-analytics">📊 Analytics</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-schedule">📅 Schedule</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-attendance">📋 Attendance</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-assignments">📝 Assignments</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-calendar">📅 Calendar</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-announcements">📣 Announcements</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-grades">🎓 Grades</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-todos">✅ To-Do</button></li>
+      <li><button class="menu-item" data-action="go-view" data-target="view-settings">⚙️ Settings</button></li>
+      <li id="menu-admin-students" hidden><button class="menu-item" data-action="go-view" data-target="view-students-admin">👥 Students</button></li>
+      <li class="sep"></li>
+      <li><button class="menu-item" data-action="toggle-admin-menu" id="headerAdminToggleLabel">Admin mode: Off</button></li>
+      <li><button class="menu-item" data-action="open-study-timer">🍅 Study Timer</button></li>
+      <li><button class="menu-item" data-action="show-shortcuts">⌨️ Shortcuts</button></li>
+      <li><button class="menu-item" data-action="logout-menu">Log out</button></li>
+    </ul>
+  </div>
+
+  <div class="app-shell">
+    <nav class="sidebar" aria-label="Primary">
+      <ul class="nav">
+        <li><button class="nav-link is-active" data-view="view-dashboard" aria-current="page">🏠 Dashboard</button></li>
+        <li><button class="nav-link" data-view="view-analytics">📊 Analytics</button></li>
+        <li><button class="nav-link" data-view="view-schedule">📅 Schedule</button></li>
+        <li><button class="nav-link" data-view="view-attendance">📋 Attendance</button></li>
+        <li><button class="nav-link" data-view="view-assignments">📝 Assignments</button></li>
+        <li><button class="nav-link" data-view="view-calendar">📅 Calendar</button></li>
+        <li><button class="nav-link" data-view="view-announcements">📣 Announcements</button></li>
+        <li><button class="nav-link" data-view="view-grades">🎓 Grades</button></li>
+        <li><button class="nav-link" data-view="view-todos">✅ To-Do</button></li>
+        <li id="nav-admin-students" hidden><button class="nav-link" data-view="view-students-admin">👥 Students</button></li>
+        <li class="spacer"></li>
+        <li><button class="nav-link" data-view="view-settings">⚙️ Settings</button></li>
+      </ul>
+    </nav>
+
+    <main id="main" class="main" role="main">
+      <!-- Login -->
+      <section id="view-login" class="view" aria-labelledby="h-login" hidden>
+        <header class="view-header"><h2 id="h-login">Login</h2></header>
+        <div class="content">
+          <section class="card" style="max-width:640px;margin:auto;">
+            <header class="card-header"><h3>Select or create a student</h3></header>
+            <div class="card-body">
+              <div class="row">
+                <label for="loginUserSelect">Existing students</label>
+                <select id="loginUserSelect"></select>
+                <div class="btn-row"><button class="btn primary" id="loginBtn">Login</button></div>
+              </div>
+              <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;" id="createUserDivider" />
+              <div class="row" id="createUserRow">
+                <label for="newUserName">Create new student</label>
+                <input id="newUserName" placeholder="Student name (e.g., Alex Johnson)" />
+                <div class="btn-row"><button class="btn" id="createUserBtn">Create & Login</button></div>
+              </div>
+            </div>
+            <p class="help" id="createUserHelp">Admin mode required to create new students.</p>
+          </section>
+        </div>
+      </section>
+
+      <!-- Dashboard Overview -->
+      <section id="view-dashboard" class="view" aria-labelledby="h-dashboard">
+        <h2 id="h-dashboard" class="visually-hidden">Dashboard</h2>
+        <div class="grid">
+          <section class="card" id="card-assignments">
+            <header class="card-header"><h3>Assignments</h3><div class="card-actions"><button class="btn" data-action="open-assignment-modal">Add</button><button class="icon-btn" title="View all" data-action="go-view" data-target="view-assignments">↗</button></div></header>
+            <div class="card-body"><ul id="dashAssignments" class="list"></ul><p class="empty" hidden>No assignments yet.</p></div>
+          </section>
+          <section class="card" id="card-calendar">
+            <header class="card-header"><h3>Calendar</h3><div class="card-actions"><div class="btn-group"><button class="icon-btn" data-action="cal-prev" aria-label="Previous month">◀</button><button class="icon-btn" data-action="cal-today">Today</button><button class="icon-btn" data-action="cal-next" aria-label="Next month">▶</button></div><button class="icon-btn" title="View full" data-action="go-view" data-target="view-calendar">↗</button></div></header>
+            <div class="card-body"><div id="miniCalendar" class="calendar" aria-label="Mini calendar"></div></div>
+          </section>
+          <section class="card" id="card-announcements">
+            <header class="card-header"><h3>Announcements</h3><div class="card-actions"><button class="btn" data-action="open-announcement-modal">Add</button><button class="icon-btn" title="View all" data-action="go-view" data-target="view-announcements">↗</button></div></header>
+            <div class="card-body"><ul id="dashAnnouncements" class="list"></ul><p class="empty" hidden>No announcements yet.</p></div>
+          </section>
+          <section class="card" id="card-grades">
+            <header class="card-header"><h3>Grades</h3><div class="card-actions"><button class="icon-btn" title="View all" data-action="go-view" data-target="view-grades">↗</button></div></header>
+            <div class="card-body"><div class="metrics" id="dashGradesMetrics" aria-live="polite"><div class="metric"><div class="metric-label">GPA</div><div class="metric-value" data-field="gpa">—</div></div><div class="metric"><div class="metric-label">Completed</div><div class="metric-value" data-field="completed">—</div></div><div class="metric"><div class="metric-label">Pending</div><div class="metric-value" data-field="pending">—</div></div></div></div>
+          </section>
+          <section class="card" id="card-todos">
+            <header class="card-header"><h3>To-Do</h3><div class="card-actions"><button class="btn" data-action="open-todo-modal">Add</button><button class="icon-btn" title="View all" data-action="go-view" data-target="view-todos">↗</button></div></header>
+            <div class="card-body"><ul id="dashTodos" class="list"></ul><p class="empty" hidden>No to-dos yet.</p></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Analytics -->
+      <section id="view-analytics" class="view" aria-labelledby="h-analytics" hidden>
+        <header class="view-header"><h2 id="h-analytics">📊 Progress Analytics</h2></header>
+        <div class="content analytics-content">
+          <div class="analytics-grid">
+            <section class="card"><header class="card-header"><h3>Grade Trend</h3></header><div class="card-body"><canvas id="gradesChart" height="200"></canvas></div></section>
+            <section class="card"><header class="card-header"><h3>Assignment Completion</h3></header><div class="card-body"><canvas id="assignmentsChart" height="200"></canvas></div></section>
+            <section class="card"><header class="card-header"><h3>Course Performance</h3></header><div class="card-body"><canvas id="courseChart" height="200"></canvas></div></section>
+            <section class="card"><header class="card-header"><h3>Productivity Overview</h3></header><div class="card-body"><div class="productivity-stats"><div class="stat-item"><div class="stat-value" id="statCompletedTodos">0</div><div class="stat-label">Tasks Completed</div></div><div class="stat-item"><div class="stat-value" id="statStudyTime">0h</div><div class="stat-label">Study Time</div></div><div class="stat-item"><div class="stat-value" id="statStreak">0</div><div class="stat-label">Day Streak</div></div></div></div></section>
+          </div>
+        </div>
+      </section>
+
+      <!-- Schedule -->
+      <section id="view-schedule" class="view" aria-labelledby="h-schedule" hidden>
+<header class="view-header"><h2 id="h-schedule">📅 Weekly Schedule</h2><div class="view-actions"><button class="btn admin-only" data-action="open-schedule-modal">Add Class</button></div></header>
+        <div class="content">
+          <div class="schedule-grid">
+            <div class="schedule-day"><h3>Monday</h3><ul id="scheduleMonday" class="schedule-list"></ul></div>
+            <div class="schedule-day"><h3>Tuesday</h3><ul id="scheduleTuesday" class="schedule-list"></ul></div>
+            <div class="schedule-day"><h3>Wednesday</h3><ul id="scheduleWednesday" class="schedule-list"></ul></div>
+            <div class="schedule-day"><h3>Thursday</h3><ul id="scheduleThursday" class="schedule-list"></ul></div>
+            <div class="schedule-day"><h3>Friday</h3><ul id="scheduleFriday" class="schedule-list"></ul></div>
+            <div class="schedule-day"><h3>Saturday</h3><ul id="scheduleSaturday" class="schedule-list"></ul></div>
+            <div class="schedule-day"><h3>Sunday</h3><ul id="scheduleSunday" class="schedule-list"></ul></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Attendance -->
+      <section id="view-attendance" class="view" aria-labelledby="h-attendance" hidden>
+<header class="view-header"><h2 id="h-attendance">📋 Attendance Tracking</h2><div class="view-actions"><button class="btn admin-only" data-action="open-attendance-modal">Mark Attendance</button></div></header>
+        <div class="content">
+          <div class="attendance-summary">
+            <div class="metric"><div class="metric-label">Present</div><div class="metric-value" id="attendancePresent">0</div></div>
+            <div class="metric"><div class="metric-label">Absent</div><div class="metric-value" id="attendanceAbsent">0</div></div>
+            <div class="metric"><div class="metric-label">Attendance Rate</div><div class="metric-value" id="attendanceRate">0%</div></div>
+          </div>
+          <table class="table" id="attendanceTable" aria-label="Attendance table"><thead><tr><th>Date</th><th>Course</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- Assignments -->
+      <section id="view-assignments" class="view" aria-labelledby="h-assignments" hidden>
+        <header class="view-header"><h2 id="h-assignments">Assignments</h2><div class="view-actions"><input id="assignmentsSearch" type="search" placeholder="Search assignments" aria-label="Search assignments" /><select id="assignmentsFilter" aria-label="Filter assignments"><option value="all">All</option><option value="pending">Pending</option><option value="completed">Completed</option></select><button class="btn" data-action="open-assignment-modal">Add assignment</button></div></header>
+        <div class="content"><ul id="assignmentsList" class="list"></ul><p class="empty" hidden>No assignments found.</p></div>
+      </section>
+
+      <!-- Calendar -->
+      <section id="view-calendar" class="view" aria-labelledby="h-calendar" hidden>
+        <header class="view-header"><h2 id="h-calendar">Calendar</h2><div class="view-actions"><div class="btn-group"><button class="btn" data-action="cal-prev">Prev</button><button class="btn" data-action="cal-today">Today</button><button class="btn" data-action="cal-next">Next</button></div><select id="calendarView" aria-label="Calendar view"><option value="month">Month</option><option value="week">Week</option><option value="agenda">Agenda</option></select></div></header>
+        <div class="content"><div id="fullCalendar" class="calendar" aria-label="Calendar"></div></div>
+      </section>
+
+      <!-- Announcements -->
+      <section id="view-announcements" class="view" aria-labelledby="h-announcements" hidden>
+        <header class="view-header"><h2 id="h-announcements">Announcements</h2><div class="view-actions"><input id="announcementsSearch" type="search" placeholder="Search announcements" aria-label="Search announcements" /><button class="btn" data-action="open-announcement-modal">Add announcement</button></div></header>
+        <div class="content"><ul id="announcementsList" class="list"></ul><p class="empty" hidden>No announcements found.</p></div>
+      </section>
+
+      <!-- Grades -->
+      <section id="view-grades" class="view" aria-labelledby="h-grades" hidden>
+        <header class="view-header"><h2 id="h-grades">Grades</h2><div class="view-actions"><select id="gradesCourseFilter" aria-label="Filter by course"></select><button class="btn admin-only" data-action="open-grade-modal">Add grade</button></div></header>
+        <div class="content">
+          <div class="grades-summary"><div class="metric"><div class="metric-label">GPA</div><div class="metric-value" id="gradesGpa">—</div></div><div class="metric"><div class="metric-label">Credits</div><div class="metric-value" id="gradesCredits">—</div></div></div>
+          <table class="table" id="gradesTable" aria-label="Grades table"><thead><tr><th>Course</th><th>Item</th><th>Score</th><th>Max</th><th>Weight</th><th>Date</th><th>Actions</th></tr></thead><tbody></tbody></table>
+          <p class="empty" hidden>No grades yet.</p>
+        </div>
+      </section>
+
+      <!-- To-Do -->
+      <section id="view-todos" class="view" aria-labelledby="h-todos" hidden>
+        <header class="view-header"><h2 id="h-todos">To-Do</h2><div class="view-actions"><input id="todosSearch" type="search" placeholder="Search to-dos" aria-label="Search to-dos" /><select id="todosFilter" aria-label="Filter to-dos"><option value="all">All</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option><option value="overdue">Overdue</option><option value="done">Completed</option></select><button class="btn" data-action="open-todo-modal">Add to-do</button></div></header>
+        <div class="content"><ul id="todosList" class="list"></ul><p class="empty" hidden>No to-dos found.</p></div>
+      </section>
+
+      <!-- Settings -->
+      <section id="view-settings" class="view" aria-labelledby="h-settings" hidden>
+        <header class="view-header"><h2 id="h-settings">Settings</h2></header>
+        <div class="content settings">
+          <fieldset><legend>Appearance</legend><div class="row"><label for="themeSelect">Theme</label><select id="themeSelect"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div><div class="row"><label for="densitySelect">Density</label><select id="densitySelect"><option value="comfortable">Comfortable</option><option value="compact">Compact/Dense</option></select></div></fieldset>
+          <fieldset><legend>Data Management</legend><div class="btn-row"><button class="btn" data-action="export-data">Export data (JSON)</button><button class="btn" data-action="import-data">Import data</button><button class="btn" data-action="export-csv">Export to CSV</button></div><div class="btn-row"><button class="btn danger" data-action="clear-data">Clear all data</button><button class="btn" data-action="seed-demo">Reset demo data</button><button class="btn" data-action="copy-student-link">Copy share link</button></div><p class="help">Data is stored locally per student. Export regularly to keep a backup.</p></fieldset>
+        </div>
+      </section>
+
+      <!-- Admin: Students -->
+      <section id="view-students-admin" class="view" aria-labelledby="h-students-admin" hidden>
+        <header class="view-header"><h2 id="h-students-admin">Students</h2><div class="view-actions"><input id="adminStudentsSearch" type="search" placeholder="Search by user ID" aria-label="Search students" /><button class="btn" data-action="admin-clear-scope">Clear scope</button></div></header>
+        <div class="content"><p class="meta">Context: <span id="adminScopeLabel">Self</span></p><ul id="studentsList" class="list"></ul><p class="empty" hidden>No students found.</p></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <dialog id="modal-todo" aria-labelledby="todoTitleLabel"><form method="dialog" id="todoForm"><header class="modal-header"><h3 id="todoTitleLabel">To-Do</h3></header><div class="modal-body"><input type="hidden" id="todoId" /><div class="row"><label for="todoTitle">Title</label><input id="todoTitle" name="title" required /></div><div class="row"><label for="todoDue">Due date</label><input id="todoDue" name="due" type="date" /></div><div class="row"><label for="todoPriority">Priority</label><select id="todoPriority" name="priority"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></div><div class="row"><label for="todoNotes">Notes</label><textarea id="todoNotes" name="notes" rows="3"></textarea></div></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="save-todo">Save</button></footer></form></dialog>
+
+  <dialog id="modal-assignment" aria-labelledby="assignmentTitleLabel"><form method="dialog" id="assignmentForm"><header class="modal-header"><h3 id="assignmentTitleLabel">Assignment</h3></header><div class="modal-body"><input type="hidden" id="assignmentId" /><div class="row"><label for="assignmentCourse">Course</label><input id="assignmentCourse" name="course" required /></div><div class="row"><label for="assignmentTitle">Title</label><input id="assignmentTitle" name="title" required /></div><div class="row"><label for="assignmentDue">Due date</label><input id="assignmentDue" name="due" type="date" /></div><div class="row"><label for="assignmentStatus">Status</label><select id="assignmentStatus" name="status"><option value="pending" selected>Pending</option><option value="completed">Completed</option></select></div><div class="row"><label for="assignmentPoints">Points</label><input id="assignmentPoints" name="points" type="number" min="0" step="1" /></div><div class="row"><label><input type="checkbox" id="assignmentFinal" /> Final (lock, admin-only)</label></div></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="save-assignment">Save</button></footer></form></dialog>
+
+  <dialog id="modal-announcement" aria-labelledby="announcementTitleLabel"><form method="dialog" id="announcementForm"><header class="modal-header"><h3 id="announcementTitleLabel">Announcement</h3></header><div class="modal-body"><input type="hidden" id="announcementId" /><div class="row"><label for="announcementTitle">Title</label><input id="announcementTitle" name="title" required /></div><div class="row"><label for="announcementBody">Body</label><textarea id="announcementBody" name="body" rows="4" required></textarea></div><div class="row"><label for="announcementDate">Date</label><input id="announcementDate" name="date" type="date" /></div></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="save-announcement">Save</button></footer></form></dialog>
+
+  <dialog id="modal-grade" aria-labelledby="gradeTitleLabel"><form method="dialog" id="gradeForm"><header class="modal-header"><h3 id="gradeTitleLabel">Grade Item</h3></header><div class="modal-body"><input type="hidden" id="gradeId" /><div class="row"><label for="gradeCourse">Course</label><input id="gradeCourse" name="course" required /></div><div class="row"><label for="gradeItem">Item</label><input id="gradeItem" name="item" required /></div><div class="row"><label for="gradeScore">Score</label><input id="gradeScore" name="score" type="number" min="0" step="0.01" /></div><div class="row"><label for="gradeMax">Max</label><input id="gradeMax" name="max" type="number" min="0" step="0.01" /></div><div class="row"><label for="gradeWeight">Weight</label><input id="gradeWeight" name="weight" type="number" min="0" max="1" step="0.01" /></div><div class="row"><label for="gradeDate">Date</label><input id="gradeDate" name="date" type="date" /></div><div class="row"><label><input type="checkbox" id="gradeFinal" /> Final (lock, admin-only)</label></div></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="save-grade">Save</button></footer></form></dialog>
+
+  <!-- Schedule Modal -->
+  <dialog id="modal-schedule" aria-labelledby="scheduleTitleLabel"><form method="dialog" id="scheduleForm"><header class="modal-header"><h3 id="scheduleTitleLabel">Add Class</h3></header><div class="modal-body"><input type="hidden" id="scheduleId" /><div class="row"><label for="scheduleCourse">Course</label><input id="scheduleCourse" name="course" required /></div><div class="row"><label for="scheduleDay">Day</label><select id="scheduleDay" name="day"><option value="Monday">Monday</option><option value="Tuesday">Tuesday</option><option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option><option value="Friday">Friday</option><option value="Saturday">Saturday</option><option value="Sunday">Sunday</option></select></div><div class="row"><label for="scheduleTime">Time</label><input id="scheduleTime" name="time" type="time" required /></div><div class="row"><label for="scheduleRoom">Room</label><input id="scheduleRoom" name="room" /></div></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="save-schedule">Save</button></footer></form></dialog>
+
+  <!-- Attendance Modal -->
+  <dialog id="modal-attendance" aria-labelledby="attendanceTitleLabel"><form method="dialog" id="attendanceForm"><header class="modal-header"><h3 id="attendanceTitleLabel">Mark Attendance</h3></header><div class="modal-body"><input type="hidden" id="attendanceId" /><div class="row"><label for="attendanceCourse">Course</label><input id="attendanceCourse" name="course" required autofocus /></div><div class="row"><label for="attendanceDate">Date</label><input id="attendanceDate" name="date" type="date" required /></div><div class="row"><label for="attendanceStatus">Status</label><select id="attendanceStatus" name="status"><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option><option value="excused">Excused</option></select></div></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="save-attendance">Save</button></footer></form></dialog>
+
+  <dialog id="modal-import" aria-labelledby="importTitleLabel"><form method="dialog" id="importForm"><header class="modal-header"><h3 id="importTitleLabel">Import Data</h3></header><div class="modal-body"><p>Import data for the current student from a JSON file.</p><input type="file" id="importFile" accept="application/json" /></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="confirm-import">Import</button></footer></form></dialog>
+
+  <dialog id="modal-export" aria-labelledby="exportTitleLabel"><form method="dialog" id="exportForm"><header class="modal-header"><h3 id="exportTitleLabel">Export Data</h3></header><div class="modal-body"><p>Export data for the current student to a JSON file.</p><label for="exportFileName" class="visually-hidden">File name</label><input id="exportFileName" placeholder="student-portal-export.json" /></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn primary" data-action="confirm-export">Export</button></footer></form></dialog>
+
+  <dialog id="modal-remove-user" aria-labelledby="removeUserTitleLabel"><form method="dialog" id="removeUserForm"><header class="modal-header"><h3 id="removeUserTitleLabel">Remove Student</h3></header><div class="modal-body"><p>Type the student's name to confirm removal.</p><p><strong id="removeUserName"></strong></p><input id="removeUserConfirm" placeholder="Type the name exactly to confirm" /><p class="help">Export data before deletion if you need a backup.</p></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Cancel</button><button value="submit" class="btn danger" id="confirmRemoveUserBtn" data-action="confirm-remove-user" disabled>Remove</button></footer></form></dialog>
+
+  <dialog id="modal-admin" aria-labelledby="adminTitleLabel"><form method="dialog" id="adminForm"><header class="modal-header"><h3 id="adminTitleLabel">Admin Panel</h3></header><div class="modal-body"><fieldset><legend>Permissions</legend><div class="row"><label><input type="checkbox" id="adminEditAny" /> Allow editing/deleting finals while admin is enabled</label></div></fieldset><fieldset><legend>Bulk Operations (current student)</legend><div class="btn-row"><button class="btn" data-action="admin-bulk-finalize-assignments">Mark all assignments as Final</button><button class="btn" data-action="admin-bulk-unfinalize-assignments">Unmark all assignments Final</button></div><div class="btn-row"><button class="btn" data-action="admin-bulk-finalize-grades">Mark all grades as Final</button><button class="btn" data-action="admin-bulk-unfinalize-grades">Unmark all grades Final</button></div></fieldset><fieldset><legend>Data (All users)</legend><div class="btn-row"><button class="btn" data-action="admin-export-all">Export all users</button><button class="btn" data-action="admin-import-all">Import all users</button></div><p class="help">Importing all users will replace the entire dataset.</p><input type="file" id="adminImportAllFile" accept="application/json" /></fieldset></div><footer class="modal-footer"><button value="cancel" class="btn ghost">Close</button></footer></form></dialog>
+
+  <!-- Toasts -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <footer class="app-footer" role="contentinfo"><small>Student Portal Dashboard — Client-side demo</small></footer>
+
+  <!-- Scripts -->
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
